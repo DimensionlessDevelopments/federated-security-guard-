@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "federated-ueba"
+version = "0.1.0"
+description = "Federated learning for user and entity behaviour analytics"
+license = { file = "LICENSE" }
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "flwr[agent]>=1.35.0,<2.0",
+    "torch>=2.13.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/federated_ueba"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.flwr.app]
+publisher = "hackathon"
+fab-include = ["src/**/*.py", "LICENSE"]
+
+[tool.flwr.app.components]
+serverapp = "federated_ueba.federated.server:app"
+clientapp = "federated_ueba.federated.client:app"
+
+[tool.flwr.app.config]
+# Model dimensions -- input-dim must match the 11-feature UEBA schema
+# (FEATURE_NAMES in federated_ueba.data.generator).
+input-dim = 11
+hidden-dim = 32
+latent-dim = 8
+
+num-server-rounds = 5
+
+fraction-train = 1.0
+fraction-evaluate = 1.0
+
+learning-rate = 0.001
+local-epochs = 2
+
+global-model-path = "artifacts/global_model.pt"
+
+
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
+
+# [tool.flwr.federations]
+# default = "local-sim"
+
+# [tool.flwr.federations.local-sim]
+# # One supernode per station: alpha, bravo, charlie, central_helpdesk
+# options.num-supernodes = 4
