@@ -40,6 +40,11 @@ src/federated_ueba/
   training/evaluate.py         local-vs-federated statistical comparison
   agent/incident.py            gather -> score -> incident report (LLM-free)
   agent/agent_app.py           Flower AgentApp -- LLM insights on incidents
+  simulation/event_stream.py   synthetic per-tick event stream (serving input)
+  serving/loop.py              score the stream with the global model
+  serving/store.py             SQLite detection store (feed for the dashboard)
+apps/api/main.py               FastAPI backend + static dashboard
+apps/api/static/index.html     single-page dashboard (polls the API)
 tests/                         unit suite + e2e simulation suite
 ```
 
@@ -149,6 +154,42 @@ for an attack assessment and response actions. Without LLM runtime
 credentials (`FLWR_RUNTIME_BASE_URL` / `FLWR_RUNTIME_API_KEY`, injected by
 the Flower runtime) it prints the analyst prompt instead of calling the
 model.
+
+## Serving loop and dashboard
+
+A separate **serving plane** turns the trained model into a live detector: it
+scores an event stream and writes detections to SQLite that a frontend (and,
+later, the correlation agent) reads. Decoupled from the Flower training plane
+-- it imports nothing from `agent/`, and `server.py`/`client.py` are untouched.
+
+### Step 4 -- Serving loop
+
+```bash
+# against the trained global model from Step 1
+uv run python scripts/run_serving.py --ticks 10 --attack-at 5 --attacked-stations station_alpha
+
+# demo without a trained model (per-station thresholds still calibrate)
+uv run python scripts/run_serving.py --untrained-demo --attack-at 5 --attacked-stations station_alpha
+```
+
+Options: `--model-path` (default `artifacts/global_model.pt`), `--db-path`
+(default `artifacts/serving.db`), `--ticks`, `--events-per-tick`,
+`--attack-at` (first tick to inject attacks), `--attacked-stations`,
+`--interval` (seconds between ticks for live pacing), `--untrained-demo`.
+Detections land in `artifacts/serving.db` (table `detections`).
+
+### Step 5 -- Dashboard
+
+```bash
+uv run uvicorn apps.api.main:app --reload
+# open http://127.0.0.1:8000
+```
+
+The FastAPI backend serves read-only JSON from the detection store
+(`/api/summary`, `/api/stations`, `/api/alerts`) plus the single-page
+dashboard, which polls every 5s. Point it at a different store with the
+`SERVING_DB` env var. `fastapi`/`uvicorn` come in via `uv sync` (transitive
+through `flwr`), so no extra install is needed.
 
 ## Measured results
 

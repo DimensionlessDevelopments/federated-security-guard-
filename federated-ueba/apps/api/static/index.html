@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Federated Security Guard</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --ink: #1c1c1e;
+    --muted: #6b7280;
+    --faint: #9ca3af;
+    --line: #ececec;
+    --gold: #b8892b;
+    --gold-soft: #fbf5e8;
+    --gold-line: #ecdcb8;
+    --green: #3f9d6d;
+    --green-soft: #eef7f1;
+    --red: #c0533b;
+    --red-soft: #fbeeea;
+    --radius: 14px;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* nav */
+  nav.top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 28px; max-width: 1120px; margin: 0 auto;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .shield {
+    width: 30px; height: 30px; border-radius: 8px; background: var(--gold-soft);
+    display: grid; place-items: center; color: var(--gold);
+  }
+  .navlinks { display: flex; gap: 26px; font-size: 14px; color: var(--muted); }
+  .navlinks a.active { color: var(--ink); font-weight: 600; border-bottom: 2px solid var(--gold); padding-bottom: 4px; }
+  .navlinks a:hover { color: var(--ink); }
+  .navbtns { display: flex; gap: 10px; }
+  .btn {
+    font-size: 13px; font-weight: 600; padding: 9px 15px; border-radius: 9px;
+    border: 1px solid var(--gold-line); background: #fff; color: var(--gold);
+    cursor: pointer;
+  }
+  .btn.solid { background: var(--gold); color: #fff; border-color: var(--gold); }
+  .btn:hover { filter: brightness(0.98); }
+
+  /* hero */
+  .hero { text-align: center; padding: 26px 0 10px; }
+  .hero .bigshield {
+    width: 54px; height: 54px; border-radius: 14px; background: var(--gold-soft);
+    display: grid; place-items: center; color: var(--gold); margin: 0 auto 16px;
+  }
+  .hero h1 { font-family: var(--serif); font-size: 26px; margin: 0 0 10px; font-weight: 600; }
+  .hero p { max-width: 720px; margin: 0 auto; color: var(--muted); }
+  .subtle { margin-top: 14px; font-size: 13px; color: var(--faint); display: flex; gap: 12px; justify-content: center; align-items: center; }
+
+  /* badges */
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600;
+    padding: 5px 11px; border-radius: 999px; background: var(--gold-soft); color: var(--gold);
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .badge.green { background: var(--green-soft); color: var(--green); }
+  .badge.red { background: var(--red-soft); color: var(--red); }
+  .badge.plain { background: #f4f4f5; color: var(--muted); }
+
+  /* generic card */
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 26px;
+  }
+  section { padding: 26px 0; }
+
+  /* review row */
+  .review { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: stretch; }
+  .review h2 { font-family: var(--serif); font-size: 30px; margin: 14px 0 8px; font-weight: 600; }
+  .review .muted { color: var(--muted); max-width: 440px; }
+  .round-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); }
+  .round-head .pct { color: var(--ink); font-weight: 700; }
+  .bar { height: 8px; border-radius: 999px; background: #f0eadd; margin: 14px 0 10px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--gold); border-radius: 999px; }
+  .round-sub { font-size: 12px; color: var(--faint); }
+
+  .bullets { display: flex; gap: 26px; justify-content: center; flex-wrap: wrap; color: var(--muted); font-size: 13px; padding: 6px 0 0; }
+  .bullets span { display: inline-flex; align-items: center; gap: 8px; }
+  .bullets .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+
+  .pills { display: flex; gap: 12px; justify-content: center; padding: 18px 0 4px; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+
+  /* centered section head */
+  .center-head { text-align: center; }
+  .center-head h2 { font-family: var(--serif); font-size: 26px; margin: 0 0 6px; font-weight: 600; }
+  .center-head p { color: var(--muted); margin: 0; }
+
+  /* tabs */
+  .tabs { display: flex; gap: 22px; justify-content: center; border-bottom: 1px solid var(--line); margin: 18px 0 0; flex-wrap: wrap; }
+  .tabs button {
+    background: none; border: none; padding: 12px 2px; font-size: 13px; color: var(--muted);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: var(--sans);
+  }
+  .tabs button.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 600; }
+  .tabpanel { padding: 22px 4px; color: var(--muted); }
+  .tabpanel .chk { color: var(--ink); display: block; margin-top: 8px; }
+
+  /* stat cards */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .stat .label { font-size: 12px; color: var(--faint); }
+  .stat .num { font-family: var(--serif); font-size: 40px; line-height: 1.1; margin: 6px 0 8px; }
+  .stat .desc { font-size: 12.5px; color: var(--muted); min-height: 34px; }
+
+  /* two column bottom */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .col h3 { font-family: var(--serif); font-size: 20px; margin: 0 0 4px; font-weight: 600; }
+  .col .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+
+  .alert { border-top: 1px solid var(--line); padding: 16px 0; }
+  .alert:first-of-type { border-top: none; }
+  .alert .row1 { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .alert .time { font-size: 12px; color: var(--faint); white-space: nowrap; }
+  .alert .title { font-weight: 600; margin: 8px 0 3px; }
+  .alert .detail { color: var(--muted); font-size: 13px; }
+  .alert .meta { font-size: 12px; color: var(--faint); margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .alert .meta b { color: var(--muted); font-weight: 600; }
+
+  .site { border-top: 1px solid var(--line); padding: 16px 0; }
+  .site:first-of-type { border-top: none; }
+  .site .r1 { display: flex; justify-content: space-between; align-items: center; }
+  .site .name { font-weight: 600; }
+  .site .loc { color: var(--faint); font-size: 12px; }
+  .site .health { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .site .hbar { height: 7px; border-radius: 999px; background: #eef1f0; margin: 8px 0; overflow: hidden; }
+  .site .hbar > span { display: block; height: 100%; background: var(--green); }
+
+  footer { text-align: center; color: var(--faint); font-size: 12px; padding: 40px 0; }
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 10px;
+    font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 860px) {
+    .review, .two { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .navlinks { display: none; }
+  }
+</style>
+</head>
+<body>
+  <nav class="top">
+    <div class="brand">
+      <span class="shield">🛡</span> Federated Security Guard
+    </div>
+    <div class="navlinks">
+      <a href="#top" class="active">Overview</a>
+      <a href="#live-attack">Live Attack</a>
+      <a href="#federated">Federated Learning</a>
+      <a href="#nodes">Nodes</a>
+      <a href="#evaluation">Evaluation</a>
+    </div>
+    <div class="navbtns">
+      <button class="btn" onclick="toast('Incident reporting is handled by the response engine')">Report Incident</button>
+      <button class="btn solid" onclick="location.href='#live-attack'; refresh()">View Live Events</button>
+    </div>
+  </nav>
+
+  <div class="wrap" id="top">
+    <!-- hero -->
+    <div class="hero">
+      <div class="bigshield">🛡</div>
+      <h1>Federated Security Guard</h1>
+      <p>A zero-trust distributed behavioural defence platform. This project demonstrates how Federated
+         Learning (FL) can improve cyber threat detection across distributed environments—such as transport
+         stations, helpdesk systems, and edge devices—without centralising raw security or behavioural data.</p>
+      <div class="subtle">
+        <span class="badge green"><span class="dot"></span>Private by design</span>
+        <span id="hero-updated">Updated —</span>
+      </div>
+    </div>
+
+    <!-- review + training round -->
+    <section>
+      <div class="review">
+        <div class="card">
+          <span class="badge"><span class="dot"></span>Needs attention</span>
+          <h2>Some activity needs your review</h2>
+          <p class="muted">A few events look out of the ordinary. Review the list below — raw event data never
+             leaves each station.</p>
+        </div>
+        <div class="card">
+          <div class="round-head">
+            <span id="round-label">Federated model status</span>
+            <span class="pct" id="round-pct">—</span>
+          </div>
+          <div class="bar"><span id="round-bar" style="width:0%"></span></div>
+          <div class="round-sub" id="round-sub">—</div>
+        </div>
+      </div>
+      <div class="bullets">
+        <span><span class="dot"></span>Raw behavioural data never leaves a station</span>
+        <span><span class="dot"></span>Local autoencoders score every event in real time</span>
+        <span><span class="dot"></span>Only model updates are shared during federated rounds</span>
+      </div>
+      <div class="pills" id="station-pills"></div>
+    </section>
+
+    <!-- what could go wrong -->
+    <section id="federated">
+      <div class="center-head">
+        <h2>What Could Go Wrong?</h2>
+        <p>Federated Security Guard watches for the behaviour patterns that matter most, and explains every finding in plain language.</p>
+      </div>
+      <div class="tabs" id="scenario-tabs"></div>
+      <div class="tabpanel" id="scenario-panel"></div>
+    </section>
+
+    <!-- stats -->
+    <section id="evaluation">
+      <div class="center-head" style="margin-bottom:18px"><h2>Built for Federated Scale</h2></div>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <!-- why federated detection -->
+    <section>
+      <div class="center-head">
+        <h2>Why Federated Detection</h2>
+        <p>A shared defence, without a shared dataset.</p>
+      </div>
+      <div class="tabs" id="why-tabs"></div>
+      <div class="tabpanel card" id="why-panel" style="margin-top:16px"></div>
+    </section>
+
+    <!-- alerts + sites -->
+    <section>
+      <div class="two">
+        <div class="card col" id="live-attack">
+          <h3>What needs a look</h3>
+          <div class="sub">Behaviour that does not match this person's usual habits, explained in plain language.</div>
+          <div id="alert-feed"></div>
+        </div>
+        <div class="card col" id="nodes">
+          <h3>Your sites</h3>
+          <div class="sub">Each station learns locally and shares only anonymous lessons.</div>
+          <div id="site-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>Federated Security Guard · behavioural telemetry stays local · only model updates are shared</footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const SCENARIOS = {
+  "Impossible Travel": "Two sign-ins from locations too far apart to be the same person in the time elapsed. The local model knows each account's usual geography and flags the jump.",
+  "Privilege Abuse": "An account suddenly requests admin rights or escalates privileges it has never used. Escalation attempts are a strong deviation from the learned baseline.",
+  "Credential Attacks": "Bursts of failed logins and password resets — the signature of credential stuffing or a compromised helpdesk workflow.",
+  "Off-Hours Activity": "Sensitive actions at 2am when this operator normally works 9–5. Time-of-day is one of the most reliable behavioural signals.",
+  "Access Pattern Drift": "A slow, steady change in what data an account touches — the fingerprint of a compromised account being explored by an attacker.",
+};
+const WHY = {
+  "Privacy by Design": "Every station trains its own local model on its own data. Only model updates — never raw behavioural events — are shared during federated learning rounds.\n\n✓ Raw event data never leaves the station it was generated on\n✓ Only anonymous model weight updates are exchanged",
+  "Early Detection": "Local autoencoders score every event as it happens and flag reconstruction errors above the station's calibrated baseline — detection happens at the edge, in real time.",
+  "Explainable Alerts": "Each alert names the behavioural feature that drove it and how far it deviates from the baseline, in sigma units — so an analyst sees why, not just that.",
+  "Federated Collaboration": "A pattern first seen at one station improves the shared model, so other stations recognise related behaviour after the next round — without ever seeing each other's logs.",
+};
+
+function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+
+function buildTabs(containerId, panelId, data, render) {
+  const tabs = document.getElementById(containerId);
+  const panel = document.getElementById(panelId);
+  const keys = Object.keys(data);
+  tabs.innerHTML = '';
+  keys.forEach((k, i) => {
+    const b = el(`<button>${k}</button>`);
+    if (i === 0) b.classList.add('active');
+    b.onclick = () => {
+      [...tabs.children].forEach(c => c.classList.remove('active'));
+      b.classList.add('active');
+      render(panel, data[k]);
+    };
+    tabs.appendChild(b);
+  });
+  render(panel, data[keys[0]]);
+}
+
+function renderText(panel, text) {
+  panel.innerHTML = '';
+  text.split('\n').forEach(line => {
+    if (!line.trim()) return;
+    if (line.startsWith('✓')) panel.appendChild(el(`<span class="chk">${line}</span>`));
+    else panel.appendChild(el(`<p style="margin:0 0 6px">${line}</p>`));
+  });
+}
+
+async function refresh() {
+  try {
+    const [summary, stations, alerts] = await Promise.all([
+      fetch('/api/summary').then(r => r.json()),
+      fetch('/api/stations').then(r => r.json()),
+      fetch('/api/alerts?limit=12').then(r => r.json()),
+    ]);
+    renderSummary(summary);
+    renderStations(stations);
+    renderAlerts(alerts);
+  } catch (e) { console.error(e); }
+}
+
+function renderSummary(s) {
+  document.getElementById('hero-updated').textContent =
+    s.model.ready ? `Global model updated ${s.model.updated}` : 'No global model yet — showing live serving feed';
+
+  const ready = s.model.ready;
+  document.getElementById('round-label').textContent =
+    ready ? 'Federated global model' : 'Federated global model (run pending)';
+  document.getElementById('round-pct').textContent = ready ? '100%' : '—';
+  document.getElementById('round-bar').style.width = ready ? '100%' : '6%';
+  document.getElementById('round-sub').textContent =
+    `${s.stations_participating} of ${s.stations_total} stations taking part in this round.`;
+
+  const stats = [
+    { label: 'Needs a look', num: s.needs_a_look, desc: 'Unusual events flagged for review.', badge: ['gold', 'Worth a look'] },
+    { label: 'Confirmed issues', num: s.confirmed_issues, desc: 'Flagged as high-risk and awaiting response.', badge: ['red', 'Check this first'] },
+    { label: 'Events monitored', num: s.events_monitored, desc: 'Behaviour events scored against normal patterns.', badge: ['green', 'Normal'] },
+    { label: 'Raw data shared', num: s.raw_data_shared, desc: 'Only anonymous model updates leave each station.', badge: ['green', 'Normal'] },
+  ];
+  const box = document.getElementById('stats');
+  box.innerHTML = '';
+  stats.forEach(st => {
+    box.appendChild(el(`
+      <div class="card stat">
+        <div class="label">${st.label}</div>
+        <div class="num">${st.num}</div>
+        <div class="desc">${st.desc}</div>
+        <span class="badge ${st.badge[0]}"><span class="dot"></span>${st.badge[1]}</span>
+      </div>`));
+  });
+}
+
+function renderStations(list) {
+  const pills = document.getElementById('station-pills');
+  pills.innerHTML = '';
+  list.forEach(s => pills.appendChild(el(
+    `<span class="pill"><span class="dot" style="background:${s.status === 'Healthy' ? 'var(--green)' : 'var(--red)'}"></span>${s.name}</span>`)));
+
+  const sites = document.getElementById('site-list');
+  sites.innerHTML = '';
+  if (!list.length) { sites.appendChild(el('<div class="sub">No station data yet. Run the serving loop.</div>')); return; }
+  list.forEach(s => {
+    const badge = s.status === 'Healthy' ? 'green' : 'red';
+    sites.appendChild(el(`
+      <div class="site">
+        <div class="r1">
+          <div><div class="name">${s.name}</div><div class="loc">${s.location}</div></div>
+          <span class="badge ${badge}"><span class="dot"></span>${s.status}</span>
+        </div>
+        <div class="hbar"><span style="width:${s.health}%;background:${badge === 'green' ? 'var(--green)' : 'var(--red)'}"></span></div>
+        <div class="health">Health ${s.health}% · contributes ${s.contribution}% of shared learning · ${s.n_flagged}/${s.n_events} flagged</div>
+      </div>`));
+  });
+}
+
+function renderAlerts(list) {
+  const feed = document.getElementById('alert-feed');
+  feed.innerHTML = '';
+  if (!list.length) { feed.appendChild(el('<div class="sub">No anomalies flagged yet. Run the serving loop with an injected attack.</div>')); return; }
+  list.forEach(a => {
+    const badge = a.is_attack ? 'red' : 'gold';
+    const tag = a.is_attack ? 'Check this first' : 'Worth a look';
+    feed.appendChild(el(`
+      <div class="alert">
+        <div class="row1">
+          <span class="badge ${badge}"><span class="dot"></span>${tag}</span>
+          <span class="time">${a.relative || ''}</span>
+        </div>
+        <div class="title">${a.title}</div>
+        <div class="detail">${a.detail}</div>
+        <div class="meta">
+          <span>Site: <b>${a.station_name}</b></span>·
+          <span>Score <b>${a.score}</b> vs threshold <b>${a.threshold}</b> (${a.ratio}×)</span>·
+          <span>Unusualness: <b>${a.unusualness}/100</b></span>
+        </div>
+      </div>`));
+  });
+}
+
+buildTabs('scenario-tabs', 'scenario-panel', SCENARIOS, (p, t) => { p.textContent = t; });
+buildTabs('why-tabs', 'why-panel', WHY, renderText);
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
