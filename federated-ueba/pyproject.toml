@@ -1,0 +1,21 @@
+[tool.flwr.app]
+publisher = "hackathon"
+
+[tool.flwr.app.components]
+serverapp = "server_app:app"
+clientapp = "client_app:app"
+
+[tool.flwr.app.config]
+input-dim = 10
+hidden-dim = 32
+latent-dim = 8
+
+num-server-rounds = 5
+
+fraction-train = 1.0
+fraction-evaluate = 1.0
+
+learning-rate = 0.001
+local-epochs = 2
+
+global-model-path = "artifacts/global_model.pt"
