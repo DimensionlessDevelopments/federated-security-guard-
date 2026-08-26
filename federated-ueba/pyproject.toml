@@ -28,19 +28,24 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/federated_ueba", "src/station_b"]
+packages = ["federated_ueba", "station_b"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["."]
 addopts = "-m 'not e2e'"
 markers = [
     "e2e: full flwr simulation end-to-end test (entrypoint: pytest -m e2e)",
 ]
 
 [tool.flwr.app]
-publisher = "hackathon"
-fab-include = ["src/**/*.py", "LICENSE"]
+publisher = "stevenrce0"
+fab-include = [
+    "federated_ueba/**/*.py",
+    "station_b/**/*.py",
+    "LICENSE",
+    "README.md",
+]
 
 [tool.flwr.app.components]
 serverapp = "federated_ueba.federated.server:app"
@@ -80,10 +85,26 @@ station = "central_helpdesk"
 # NOTE: `flwr run` (v1.35) may rewrite/re-comment this block via its config
 # migration. It defines the local-sim federation, so keep it uncommented to
 # run the simulation. ray is provided via the flwr[simulation] dependency.
-[tool.flwr.federations]
-default = "local-sim"
 
-[tool.flwr.federations.local-sim]
-# 4 ML stations (alpha, bravo, charlie, central_helpdesk) + 1 Station B node.
-# Partition 4 is routed to StationBClient by the dispatcher.
-options.num-supernodes = 5
+#######################################################################
+# CONFIGURATION MIGRATION NOTICE:
+#
+# What was previously called "federation config" for SuperLink
+# connections in pyproject.toml has been renamed and moved.
+#
+# These settings are now **SuperLink connection configuration**
+# and are defined in the Flower configuration file.
+#
+# The entries below are commented out intentionally and are kept
+# only as a migration reference.
+#
+# Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
+#######################################################################
+
+# [tool.flwr.federations]
+# default = "local-sim"
+
+# [tool.flwr.federations.local-sim]
+# # 4 ML stations (alpha, bravo, charlie, central_helpdesk) + 1 Station B node.
+# # Partition 4 is routed to StationBClient by the dispatcher.
+# options.num-supernodes = 5

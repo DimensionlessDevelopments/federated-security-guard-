@@ -71,7 +71,7 @@ model has to reconcile genuinely different baselines.
 | Charlie | High passenger volume | large auth volume, different traffic mix |
 | Helpdesk | Support desk | reset- and escalation-heavy (the breach surface) |
 
-Partitioning lives in `src/federated_ueba/data/partition.py`; generation in
+Partitioning lives in `federated_ueba/data/partition.py`; generation in
 `data/generator.py`. Each site's slice is written to `data/synthetic/`.
 
 Because baselines differ, a naive global average must still keep each site's
@@ -82,7 +82,7 @@ comparison measures.
 
 Default: **FedAvg** (example-count weighted mean).
 
-Extension in `src/federated_ueba/federated/strategy.py`: subclass Flower's
+Extension in `federated_ueba/federated/strategy.py`: subclass Flower's
 strategy to **up-weight updates from higher-risk nodes**, so a site actively
 seeing attack behaviour contributes more strongly to the round. This realises
 the plan's "weigh security alerts from high-risk nodes more heavily" idea through

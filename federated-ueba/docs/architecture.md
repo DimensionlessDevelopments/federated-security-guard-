@@ -77,23 +77,23 @@ The architecture maps directly onto the repository layout.
 
 | Concern | Module | Role |
 |---|---|---|
-| Synthetic data | `src/federated_ueba/data/generator.py` | Generate per-site behavioural event logs |
-| | `src/federated_ueba/data/partition.py` | Produce **non-IID** partitions across sites |
-| | `src/federated_ueba/data/preprocessing.py`, `dataset.py` | Feature encoding, PyTorch datasets |
-| Model | `src/federated_ueba/models/autoencoder.py` | Small reconstruction autoencoder |
-| Detection | `src/federated_ueba/detection/anomaly_detector.py` | Wraps model, produces anomaly scores |
-| | `src/federated_ueba/detection/scoring.py`, `thresholds.py` | Reconstruction error → score → decision |
-| Immediate response | `src/federated_ueba/security/risk_engine.py` | Combine detector + deterministic rules |
-| | `src/federated_ueba/security/policy.py`, `response.py` | Block / re-auth / alert actions |
-| Training modes | `src/federated_ueba/training/local.py` | Local-only training |
-| | `src/federated_ueba/training/centralized.py` | Pooled baseline |
-| | `src/federated_ueba/training/evaluate.py` | Shared eval / metrics |
-| Federation | `src/federated_ueba/federated/client.py` | Flower `ClientApp` (local fit/evaluate) |
-| | `src/federated_ueba/federated/server.py` | Flower `ServerApp` |
-| | `src/federated_ueba/federated/strategy.py` | Aggregation strategy (FedAvg + custom weighting) |
-| | `src/federated_ueba/federated/simulation.py` | Multi-client simulation harness |
-| Attack story | `src/federated_ueba/simulation/attack_generator.py` | Inject social-engineering / lateral-movement sequences |
-| | `src/federated_ueba/simulation/scenarios.py`, `event_stream.py` | Scripted demo scenarios |
+| Synthetic data | `federated_ueba/data/generator.py` | Generate per-site behavioural event logs |
+| | `federated_ueba/data/partition.py` | Produce **non-IID** partitions across sites |
+| | `federated_ueba/data/preprocessing.py`, `dataset.py` | Feature encoding, PyTorch datasets |
+| Model | `federated_ueba/models/autoencoder.py` | Small reconstruction autoencoder |
+| Detection | `federated_ueba/detection/anomaly_detector.py` | Wraps model, produces anomaly scores |
+| | `federated_ueba/detection/scoring.py`, `thresholds.py` | Reconstruction error → score → decision |
+| Immediate response | `federated_ueba/security/risk_engine.py` | Combine detector + deterministic rules |
+| | `federated_ueba/security/policy.py`, `response.py` | Block / re-auth / alert actions |
+| Training modes | `federated_ueba/training/local.py` | Local-only training |
+| | `federated_ueba/training/centralized.py` | Pooled baseline |
+| | `federated_ueba/training/evaluate.py` | Shared eval / metrics |
+| Federation | `federated_ueba/federated/client.py` | Flower `ClientApp` (local fit/evaluate) |
+| | `federated_ueba/federated/server.py` | Flower `ServerApp` |
+| | `federated_ueba/federated/strategy.py` | Aggregation strategy (FedAvg + custom weighting) |
+| | `federated_ueba/federated/simulation.py` | Multi-client simulation harness |
+| Attack story | `federated_ueba/simulation/attack_generator.py` | Inject social-engineering / lateral-movement sequences |
+| | `federated_ueba/simulation/scenarios.py`, `event_stream.py` | Scripted demo scenarios |
 | Entry points | `scripts/*.py` | Generate data, train (local/central/federated), run demo |
 | Surfaces | `apps/api/main.py`, `apps/dashboard/app.py` | API + dashboard |
 | Config | `configs/{base,local,centralized,federated}.yaml` | Per-mode configuration |

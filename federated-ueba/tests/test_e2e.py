@@ -12,7 +12,6 @@ CLI + local SuperLink). Entrypoint:
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import subprocess
@@ -45,16 +44,12 @@ def simulation_output() -> str:
     if MODEL_PATH.exists():
         MODEL_PATH.unlink()  # the run must recreate it
 
-    env = {
-        **os.environ,
-        "PYTHONPATH": str(PROJECT_ROOT / "src")
-        + os.pathsep
-        + os.environ.get("PYTHONPATH", ""),
-    }
+    # No PYTHONPATH shim: the app uses the root-package layout, so the
+    # modules import from the app directory itself -- the same way a FAB
+    # installed from Flower Hub is loaded on a SuperNode.
     result = subprocess.run(
         ["flwr", "run", ".", "local-sim", "--stream"],
         cwd=PROJECT_ROOT,
-        env=env,
         capture_output=True,
         text=True,
         timeout=RUN_TIMEOUT_S,

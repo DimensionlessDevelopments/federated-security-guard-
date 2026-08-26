@@ -1,4 +1,4 @@
-# federated-ueba
+# Federated Security Guard
 
 Federated behavioural anomaly detection (UEBA) for distributed transport
 infrastructure, built on [Flower](https://flower.ai). Four simulated
@@ -28,7 +28,7 @@ managing the environment yourself.)
 ## Layout
 
 ```
-src/federated_ueba/
+federated_ueba/
   models/autoencoder.py        SecurityAutoencoder (input_dim -> hidden -> latent)
   data/generator.py            11-feature UEBA schema + per-station normal profiles
   data/preprocessing.py        z-score normalization
@@ -40,8 +40,15 @@ src/federated_ueba/
   training/evaluate.py         local-vs-federated statistical comparison
   agent/incident.py            gather -> score -> incident report (LLM-free)
   agent/agent_app.py           Flower AgentApp -- LLM insights on incidents
+station_b/                     non-ML station (own package, no torch)
+  client_app.py                StationBClient -- rule-based, echoes the model
 tests/                         unit suite + e2e simulation suite
 ```
+
+Both packages sit at the app root, which is the layout Flower expects: a
+FAB installed on a SuperNode puts the app directory itself on the import
+path, so `federated_ueba` and `station_b` resolve with no `PYTHONPATH`
+shim. See [Packaging for Flower Hub](#packaging-for-flower-hub).
 
 ## Running the tests
 
@@ -80,9 +87,9 @@ uv run flwr run . local-sim --stream
 - The server saves the aggregated model to `artifacts/global_model.pt`.
 - The local SuperLink keeps running afterwards (inspect runs with
   `uv run flwr ls`; stop the daemon with `pkill -f flower-superlink`).
-- `uv run` matters here: it puts the project package on the path for
-  Flower's tooling (the repo uses a `src/` layout). Outside uv, prefix
-  with `PYTHONPATH=src` instead.
+- `uv run` is only about using the project's `.venv`; the app modules
+  themselves need no path setup (root-package layout). Any environment
+  with the dependencies installed can run `flwr run .` directly.
 
 ### Step 2 -- Incident agent on the trained model
 
@@ -124,6 +131,69 @@ Training configuration lives in `pyproject.toml` under
 | `global-model-path` | `artifacts/global_model.pt` | where the server saves the aggregated model |
 | `agent.model` | `openai/gpt-5.6-sol` | analyst LLM for the AgentApp |
 | `agent.station` | `central_helpdesk` | station the agent inspects |
+
+## Packaging for Flower Hub
+
+Flower distributes an app as a **FAB** (Flower App Bundle): a zip of the
+app source plus its `pyproject.toml`, which a SuperNode installs and puts
+on the import path before a run.
+
+```bash
+uv run flwr build
+```
+
+produces `stevenrce0.federated-ueba.0-1-0.<hash>.fab`:
+
+```
+pyproject.toml     app metadata, components, [tool.flwr.app.config] defaults
+LICENSE  README.md
+federated_ueba/    ServerApp, ClientApp dispatcher, AgentApp, model, detection
+station_b/         non-ML ClientApp
+```
+
+`fab-include` in `pyproject.toml` pins that list, so tests, docs and
+`docker-compose.yml` stay out of the bundle; `artifacts/` and `secrets/`
+are gitignored and never reach it either.
+
+Verify the bundle the way a node consumes it -- install it and import the
+entrypoints from the installed copy, with the source tree off the path:
+
+```bash
+uv run flwr install stevenrce0.federated-ueba.0-1-0.<hash>.fab
+```
+
+It unpacks to `~/.flwr/apps/stevenrce0.federated-ueba.0.1.0.<hash>/`, where
+`federated_ueba.federated.server:app`,
+`federated_ueba.federated.client_dispatch:app` and
+`federated_ueba.agent.agent_app:app` all resolve from the app directory
+alone. That is the reason for the root-package layout: with a `src/`
+layout the FAB root holds `src/federated_ueba/`, and nothing on a
+SuperNode adds `src/` to `sys.path`.
+
+Publishing to the Hub uploads the project *source* rather than the FAB
+(73 files / ~180 KB here, against limits of 1 MB per file and 10 MB
+total). The file set is `.gitignore` minus an extension allowlist --
+`.py`, `.md`, `.toml`, `.yaml`/`.yml`, `.json`, plus root `LICENSE` --
+which is why the trained model (`artifacts/*.pt`) and the SuperNode SSH
+keys (`secrets/`) cannot be swept in.
+
+```bash
+uv run flwr login          # account on supergrid.flower.ai
+uv run flwr app publish .
+```
+
+Hub versions are immutable: re-publishing an existing `[project].version`
+returns `409 this version already exists`, so bump the version to ship a
+change.
+
+Publish-time requirements, all met by this app: `publisher` under
+`[tool.flwr.app]` must equal the authenticated Hub account (`stevenrce0`)
+or the upload is rejected with `403 publisher does not match
+authenticated user`; the app directory name (`federated-ueba`) must start
+with a letter and hold only letters, digits and hyphens (≤32 chars);
+`[project].description` must be non-empty and ≤200 characters; and
+`[project].license.file`, if declared, must be `LICENSE` or `LICENSE.md`
+and present in the upload.
 
 ## Incident agent
 
@@ -168,8 +238,6 @@ false-positive cost, with zero raw data exchanged.
 
 ## Known caveats
 
-- Run `flwr run` through `uv run` (or with `PYTHONPATH=src`) until the
-  src-layout vs root-package question is settled.
 - `flwr run` executes EITHER training OR the agent, depending on whether
   the `agentapp` component is registered -- see Step 3 of the run guide.
 - `ray` is a direct dependency because Flower's simulation engine needs it.

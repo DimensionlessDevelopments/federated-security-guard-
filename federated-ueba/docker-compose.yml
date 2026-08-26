@@ -1,0 +1,120 @@
+# Dockerised Flower deployment runtime for federated-ueba.
+#
+# Runs the real (non-simulation) topology in Linux containers: one SuperLink
+# plus five SuperNodes -- four ML stations and one non-ML Station B node.
+# Containers avoid the macOS crypto limitation that blocks running a
+# SuperNode natively (SuperNode auth requires NIST EC / P-384 SSH keys).
+#
+#   docker compose up -d
+#   uv run flwr run . local-docker --stream
+#   docker compose down
+#
+# Ubuntu (glibc) image variants are required: the default Alpine/musl
+# images cannot install `ray`, which ships manylinux wheels only.
+#
+# The `local-docker` SuperLink connection points at 127.0.0.1:9093 (see
+# README). Each SuperNode gets its own partition-id, which the ClientApp
+# dispatcher maps to a station.
+
+x-supernode: &supernode
+  image: flwr/supernode:1.35.0-py3.13-ubuntu24.04
+  depends_on:
+    superlink:
+      condition: service_started
+  restart: unless-stopped
+  networks: [flwr]
+
+services:
+  superlink:
+    image: flwr/superlink:1.35.0-py3.13-ubuntu24.04
+    container_name: fsg-superlink
+    command:
+      - --insecure
+      - --isolation
+      - subprocess
+    ports:
+      # Control API -- `flwr run` submits runs here.
+      - "9093:9093"
+    networks: [flwr]
+    restart: unless-stopped
+
+  # ---- ML stations (partitions 0-3 -> StationClient) ------------------
+  supernode-alpha:
+    <<: *supernode
+    container_name: fsg-node-alpha
+    command: &alpha_cmd
+      - --insecure
+      - --superlink
+      - superlink:9092
+      - --node-config
+      - partition-id=0 num-partitions=5
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9094"
+      - --allow-runtime-dependency-installation
+
+  supernode-bravo:
+    <<: *supernode
+    container_name: fsg-node-bravo
+    command:
+      - --insecure
+      - --superlink
+      - superlink:9092
+      - --node-config
+      - partition-id=1 num-partitions=5
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9094"
+      - --allow-runtime-dependency-installation
+
+  supernode-charlie:
+    <<: *supernode
+    container_name: fsg-node-charlie
+    command:
+      - --insecure
+      - --superlink
+      - superlink:9092
+      - --node-config
+      - partition-id=2 num-partitions=5
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9094"
+      - --allow-runtime-dependency-installation
+
+  supernode-helpdesk:
+    <<: *supernode
+    container_name: fsg-node-helpdesk
+    command:
+      - --insecure
+      - --superlink
+      - superlink:9092
+      - --node-config
+      - partition-id=3 num-partitions=5
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9094"
+      - --allow-runtime-dependency-installation
+
+  # ---- Non-ML node (partition 4 -> StationBClient) --------------------
+  supernode-station-b:
+    <<: *supernode
+    container_name: fsg-node-station-b
+    command:
+      - --insecure
+      - --superlink
+      - superlink:9092
+      - --node-config
+      - partition-id=4 num-partitions=5
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9094"
+      - --allow-runtime-dependency-installation
+
+networks:
+  flwr:
+    name: fsg-flwr

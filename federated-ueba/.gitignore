@@ -4,3 +4,8 @@ __pycache__/
 .pytest_cache/
 .coverage
 artifacts/
+secrets/
+*.pem
+
+# Flower App Bundles built by `flwr build`
+*.fab

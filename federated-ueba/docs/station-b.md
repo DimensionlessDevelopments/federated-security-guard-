@@ -63,7 +63,7 @@ the run without modifying `server.py`.
 ## Package layout
 
 ```
-src/station_b/
+station_b/
   synthetic.py    # numpy-only synthetic event generation (EventLog)
   reporter.py     # deterministic summary stats + threshold rules -> info dict
   client_app.py   # StationBClient(NumPyClient) + standalone ClientApp
@@ -77,7 +77,7 @@ off-hours privilege escalation) — no learning involved.
 A single thin dispatcher is the only coupling point:
 
 ```
-src/federated_ueba/federated/client_dispatch.py
+federated_ueba/federated/client_dispatch.py
 ```
 
 It routes by `partition-id`: partitions `0..3` run the existing, unmodified ML
