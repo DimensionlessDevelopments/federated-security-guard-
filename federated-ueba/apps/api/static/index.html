@@ -486,9 +486,18 @@ async function reportIncident(station) {
   let rep;
   try {
     // POST: injects an attack for the station into the store, then analyses it.
-    rep = await fetch('/api/incident' + (station ? `?station=${station}` : ''),
-                      { method: 'POST' }).then(r => r.json());
-  } catch (e) { body.innerHTML = '<div class="muted-note">Could not run the agent.</div>'; return; }
+    const r = await fetch('/api/incident' + (station ? `?station=${station}` : ''),
+                          { method: 'POST' });
+    if (!r.ok) {
+      body.innerHTML = `<div class="muted-note">Agent request failed (HTTP ${r.status}). ` +
+        `If this is 405/404, restart the server (the endpoint moved to POST) and hard-refresh.</div>`;
+      return;
+    }
+    rep = await r.json();
+  } catch (e) {
+    body.innerHTML = `<div class="muted-note">Could not reach the agent: ${e}. Is the server running?</div>`;
+    return;
+  }
   refresh();  // the injected attack now shows in the feed / stats / station health
 
   document.getElementById('inc-station').value = rep.station;

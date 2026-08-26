@@ -323,7 +323,10 @@ def report_incident(station: str | None = None) -> dict:
 
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+    # no-store so browsers never serve a stale dashboard across versions.
+    return FileResponse(
+        STATIC_DIR / "index.html", headers={"Cache-Control": "no-store"}
+    )
 
 
 app.mount("/", StaticFiles(directory=str(STATIC_DIR)), name="static")
