@@ -191,11 +191,24 @@ dashboard, which polls every 5s. Point it at a different store with the
 `SERVING_DB` env var. `fastapi`/`uvicorn` come in via `uv sync` (transitive
 through `flwr`), so no extra install is needed.
 
-The **Report Incident** button runs the incident agent (`agent/incident.py`)
-via `GET /api/incident` and shows the report in-page: by default it analyses
-the station with the highest live flag rate (the one under attack), naming the
-behavioural features that drove the anomaly and the analyst-LLM prompt. It uses
-the federated global model if present, otherwise a local fallback.
+With an empty store the dashboard opens **all green** -- every station healthy,
+no alerts ("All clear"). The **Report Incident** button (`POST /api/incident`)
+then *simulates and reports* an incident: it injects a burst of attack traffic
+for a station into the store (so the alert feed, stats, and that station's
+health light up on the next poll) and runs the incident agent
+(`agent/incident.py`), showing the report in-page -- the behavioural features
+that drove the anomaly (in sigma) and the analyst-LLM prompt. It uses the
+federated global model if present, otherwise a local fallback. (`GET
+/api/incident` is the read-only analysis, with no store side-effect.)
+
+So the simplest demo needs no serving loop at all: start the dashboard on a
+fresh store and click **Report Incident** to watch it go from green to an
+active incident.
+
+```bash
+rm -f artifacts/serving.db*          # start green
+uv run uvicorn apps.api.main:app --reload
+```
 
 ## Measured results
 

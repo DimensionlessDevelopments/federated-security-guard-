@@ -151,14 +151,14 @@ def summary() -> dict:
     else:
         model_status = {"ready": False, "updated": None}
 
-    participating = len(rows)
     return {
         "events_monitored": total,
         "needs_a_look": flagged,
         "confirmed_issues": confirmed,
         "raw_data_shared": "None",
         "model": model_status,
-        "stations_participating": participating,
+        # All known stations are online in the baseline.
+        "stations_participating": len(STATION_NAMES),
         "stations_total": len(STATION_NAMES),
     }
 
@@ -167,16 +167,17 @@ def summary() -> dict:
 def stations() -> list[dict]:
     store = _store()
     try:
-        rows = store.summary()
+        rows = {r["station"]: r for r in store.summary()}
     finally:
         store.close()
 
-    total_events = sum(r["n_events"] for r in rows) or 1
+    total_events = sum(r["n_events"] for r in rows.values()) or 1
     out = []
-    for r in rows:
-        station = r["station"]
-        n_events = r["n_events"]
-        n_flagged = r["n_flagged"] or 0
+    # Always list all known stations, so an empty store shows a green baseline.
+    for station in STATION_NAMES:
+        r = rows.get(station)
+        n_events = r["n_events"] if r else 0
+        n_flagged = (r["n_flagged"] or 0) if r else 0
         flag_rate = n_flagged / n_events if n_events else 0.0
         health = max(0, min(100, round(100 * (1 - flag_rate))))
         meta = STATION_META.get(station, {"name": station, "location": ""})
@@ -248,41 +249,20 @@ def _incident_model(station: str):
     return train_fallback_model(station, epochs=10)
 
 
-@app.get("/api/incident")
-def incident(station: str | None = None, attack_fraction: float | None = None) -> dict:
-    """Run the incident-report agent for a station and return its analysis.
+def _pick_station(station: str | None, rows: list[dict]) -> str:
+    """Resolve the target station: given, else the hottest, else the default."""
+    if station and station in STATION_NAMES:
+        return station
+    if rows:
+        return max(
+            rows, key=lambda r: (r["n_flagged"] or 0) / max(r["n_events"], 1)
+        )["station"]
+    return STATION_NAMES[0]
 
-    With no station, analyses the station with the highest live flag rate (the
-    one under attack). The attack fraction defaults to that station's observed
-    flag rate, so a quiet station yields "no incident" and a hot one triggers.
-    """
-    store = _store()
-    try:
-        rows = store.summary()
-    finally:
-        store.close()
 
-    by_station = {r["station"]: r for r in rows}
-    if station is None:
-        if rows:
-            station = max(
-                rows,
-                key=lambda r: (r["n_flagged"] or 0) / max(r["n_events"], 1),
-            )["station"]
-        else:
-            station = STATION_NAMES[0]
-    if station not in STATION_NAMES:
-        station = STATION_NAMES[0]
-
-    if attack_fraction is None:
-        row = by_station.get(station)
-        rate = (row["n_flagged"] / row["n_events"]) if row and row["n_events"] else 0.1
-        attack_fraction = max(0.0, min(0.5, rate * 1.2))
-
+def _run_incident(station: str, attack_fraction: float) -> dict:
     model = _incident_model(station)
-    report = gather_incident_data(
-        model, station, attack_fraction=attack_fraction
-    )
+    report = gather_incident_data(model, station, attack_fraction=attack_fraction)
     return {
         "station": station,
         "station_name": _station_name(station),
@@ -297,6 +277,48 @@ def incident(station: str | None = None, attack_fraction: float | None = None) -
         "attack_fraction": round(attack_fraction, 3),
         "model": "federated" if Path(MODEL_PATH).exists() else "local-fallback",
     }
+
+
+@app.get("/api/incident")
+def incident(station: str | None = None, attack_fraction: float = 0.25) -> dict:
+    """Read-only: run the incident agent for a station and return its analysis.
+
+    Does not modify the store. With no station, analyses the hottest one.
+    """
+    store = _store()
+    try:
+        rows = store.summary()
+    finally:
+        store.close()
+    return _run_incident(_pick_station(station, rows), attack_fraction)
+
+
+@app.post("/api/incident")
+def report_incident(station: str | None = None) -> dict:
+    """Simulate + report an incident: inject an attack for the target station
+    into the detection store (so the live dashboard populates), then return the
+    agent's analysis. This is what the "Report Incident" button calls.
+    """
+    from federated_ueba.serving.loop import run_serving
+
+    store = _store()
+    try:
+        target = _pick_station(station, store.summary())
+        # Inject a short burst of attack traffic for this station.
+        run_serving(
+            store,
+            model=_incident_model(target),
+            stations=[target],
+            ticks=3,
+            events_per_tick=20,
+            attack_at=0,
+            attacked_stations=[target],
+            seed=int(datetime.now(timezone.utc).timestamp()),
+        )
+    finally:
+        store.close()
+
+    return _run_incident(target, attack_fraction=0.3)
 
 
 @app.get("/")

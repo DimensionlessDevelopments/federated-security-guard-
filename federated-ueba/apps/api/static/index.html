@@ -223,9 +223,9 @@
     <section>
       <div class="review">
         <div class="card">
-          <span class="badge"><span class="dot"></span>Needs attention</span>
-          <h2>Some activity needs your review</h2>
-          <p class="muted">A few events look out of the ordinary. Review the list below — raw event data never
+          <span class="badge" id="review-badge"><span class="dot"></span>All clear</span>
+          <h2 id="review-title">Everything looks normal</h2>
+          <p class="muted" id="review-sub">No unusual behaviour across your stations. Raw event data never
              leaves each station.</p>
         </div>
         <div class="card">
@@ -298,7 +298,7 @@
           <h3 id="inc-title" style="margin-top:10px">Incident report</h3>
           <div class="field-select">
             Station:
-            <select id="inc-station" onchange="loadIncident(this.value)"></select>
+            <select id="inc-station" onchange="reportIncident(this.value)"></select>
           </div>
         </div>
         <button class="close" onclick="closeIncident()">&times;</button>
@@ -371,6 +371,20 @@ function renderSummary(s) {
   document.getElementById('hero-updated').textContent =
     s.model.ready ? `Global model updated ${s.model.updated}` : 'No global model yet — showing live serving feed';
 
+  // Review panel adapts to whether anything is flagged.
+  const rb = document.getElementById('review-badge');
+  if (s.needs_a_look > 0) {
+    rb.className = 'badge'; rb.innerHTML = '<span class="dot"></span>Needs attention';
+    document.getElementById('review-title').textContent = 'Some activity needs your review';
+    document.getElementById('review-sub').textContent =
+      'A few events look out of the ordinary. Review the list below — raw event data never leaves each station.';
+  } else {
+    rb.className = 'badge green'; rb.innerHTML = '<span class="dot"></span>All clear';
+    document.getElementById('review-title').textContent = 'Everything looks normal';
+    document.getElementById('review-sub').textContent =
+      'No unusual behaviour across your stations. Raw event data never leaves each station.';
+  }
+
   const ready = s.model.ready;
   document.getElementById('round-label').textContent =
     ready ? 'Federated global model' : 'Federated global model (run pending)';
@@ -424,7 +438,7 @@ function renderStations(list) {
 function renderAlerts(list) {
   const feed = document.getElementById('alert-feed');
   feed.innerHTML = '';
-  if (!list.length) { feed.appendChild(el('<div class="sub">No anomalies flagged yet. Run the serving loop with an injected attack.</div>')); return; }
+  if (!list.length) { feed.appendChild(el('<div class="sub">✓ All clear — no incidents reported. Hit <b>Report Incident</b> to run the agent.</div>')); return; }
   list.forEach(a => {
     const badge = a.is_attack ? 'red' : 'gold';
     const tag = a.is_attack ? 'Check this first' : 'Worth a look';
@@ -462,17 +476,20 @@ async function ensureStationOptions(selected) {
 async function openIncident() {
   document.getElementById('incident-overlay').classList.add('show');
   await ensureStationOptions('');
-  loadIncident('');
+  reportIncident('');
 }
 function closeIncident() { document.getElementById('incident-overlay').classList.remove('show'); }
 
-async function loadIncident(station) {
+async function reportIncident(station) {
   const body = document.getElementById('inc-body');
-  body.innerHTML = '<div class="muted-note">Running the incident agent…</div>';
+  body.innerHTML = '<div class="muted-note">Simulating and analysing an incident…</div>';
   let rep;
   try {
-    rep = await fetch('/api/incident' + (station ? `?station=${station}` : '')).then(r => r.json());
+    // POST: injects an attack for the station into the store, then analyses it.
+    rep = await fetch('/api/incident' + (station ? `?station=${station}` : ''),
+                      { method: 'POST' }).then(r => r.json());
   } catch (e) { body.innerHTML = '<div class="muted-note">Could not run the agent.</div>'; return; }
+  refresh();  // the injected attack now shows in the feed / stats / station health
 
   document.getElementById('inc-station').value = rep.station;
   const badge = document.getElementById('inc-badge');

@@ -58,15 +58,61 @@ def test_summary(client):
     assert s["needs_a_look"] == 2  # two flagged
     assert s["confirmed_issues"] == 1  # flagged AND attack
     assert s["raw_data_shared"] == "None"
-    assert s["stations_participating"] == 2
+    # All known stations are reported as online in the baseline.
+    assert s["stations_participating"] == s["stations_total"]
 
 
 def test_stations(client):
     rows = {r["id"]: r for r in client.get("/api/stations").json()}
+    # All known stations are always listed (green baseline for unseeded ones).
+    assert len(rows) == s_total(client)
     assert rows["station_alpha"]["n_flagged"] == 2
     assert rows["station_alpha"]["status"] == "Needs attention"  # 2/3 flagged
     assert rows["station_bravo"]["status"] == "Healthy"
-    assert 0 <= rows["station_alpha"]["health"] <= 100
+    # A station with no detections shows a healthy baseline.
+    assert rows["station_charlie"]["n_events"] == 0
+    assert rows["station_charlie"]["status"] == "Healthy"
+    assert rows["station_charlie"]["health"] == 100
+
+
+def s_total(client) -> int:
+    return client.get("/api/summary").json()["stations_total"]
+
+
+def test_empty_store_is_all_green(tmp_path, monkeypatch):
+    """With no detections, the dashboard baseline is all-healthy, no alerts."""
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("SERVING_DB", str(tmp_path / "empty.db"))
+    import apps.api.main as main
+
+    importlib.reload(main)
+    c = TestClient(main.app)
+
+    assert c.get("/api/summary").json()["needs_a_look"] == 0
+    assert c.get("/api/alerts").json() == []
+    stations = c.get("/api/stations").json()
+    assert stations and all(s["status"] == "Healthy" for s in stations)
+
+
+def test_post_incident_populates_store(tmp_path, monkeypatch):
+    """POST /api/incident injects an attack so the feed/stats populate."""
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("SERVING_DB", str(tmp_path / "pop.db"))
+    import apps.api.main as main
+
+    importlib.reload(main)
+    c = TestClient(main.app)
+
+    assert c.get("/api/summary").json()["events_monitored"] == 0  # green start
+    rep = c.post("/api/incident?station=station_alpha").json()
+    assert rep["station"] == "station_alpha"
+    # the injected attack now shows up in the store-backed views
+    assert c.get("/api/summary").json()["events_monitored"] > 0
+    assert len(c.get("/api/alerts").json()) > 0
+    rows = {r["id"]: r for r in c.get("/api/stations").json()}
+    assert rows["station_alpha"]["n_flagged"] > 0
 
 
 def test_alerts_are_flagged_only_with_explanations(client):
