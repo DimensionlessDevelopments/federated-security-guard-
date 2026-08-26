@@ -9,7 +9,9 @@ description = "Federated learning for user and entity behaviour analytics"
 license = { file = "LICENSE" }
 requires-python = ">=3.11,<4.0"
 dependencies = [
-    "flwr[agent]>=1.35.0,<2.0",
+    # `simulation` pulls in ray, required by the Flower Simulation Engine
+    # (`flwr run . local-sim`).
+    "flwr[agent,simulation]>=1.35.0,<2.0",
     "torch>=2.13.0",
     "numpy>=1.24.0",
 ]
@@ -58,8 +60,8 @@ global-model-path = "artifacts/global_model.pt"
 station-b-events = 500
 
 # NOTE: `flwr run` (v1.35) may rewrite/re-comment this block via its config
-# migration. It is required to define the local-sim federation, so keep it
-# uncommented to run the simulation. Requires `ray` in flwr's runtime sandbox.
+# migration. It defines the local-sim federation, so keep it uncommented to
+# run the simulation. ray is provided via the flwr[simulation] dependency.
 [tool.flwr.federations]
 default = "local-sim"
 
