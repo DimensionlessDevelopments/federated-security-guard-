@@ -35,6 +35,20 @@ BATCH_SIZE = 32
 LOCAL_EPOCHS = 10
 LEARNING_RATE = 0.001
 
+# Keys of the MetricRecord in this client's replies. FedAvg requires every
+# reply in a round to carry IDENTICAL MetricRecord keys, so any other node
+# type in the run (e.g. Station B) must mirror these exact sets.
+TRAIN_METRIC_KEYS = ("num-examples",)
+EVAL_METRIC_KEYS = (
+    "eval_loss",
+    "num-examples",
+    "accuracy",
+    "precision",
+    "recall",
+    "fpr",
+    "threshold",
+)
+
 
 class StationClient:
     """Local trainer for one station. Transport-agnostic: works with plain

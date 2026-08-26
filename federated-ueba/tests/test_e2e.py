@@ -35,7 +35,7 @@ pytestmark = [
 PROJECT_ROOT = Path(__file__).parent.parent
 MODEL_PATH = PROJECT_ROOT / "artifacts" / "global_model.pt"
 NUM_ROUNDS = 5
-NUM_NODES = 4
+NUM_NODES = 5  # 4 ML stations + 1 non-ML Station B node
 RUN_TIMEOUT_S = 600
 
 

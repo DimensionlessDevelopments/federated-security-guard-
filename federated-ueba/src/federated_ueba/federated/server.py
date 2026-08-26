@@ -3,9 +3,13 @@ from pathlib import Path
 import torch
 from flwr.app import ArrayRecord, ConfigRecord, Context
 from flwr.serverapp import Grid, ServerApp
-from flwr.serverapp.strategy import FedAvg
 
 from federated_ueba.data.generator import NUM_FEATURES
+from federated_ueba.federated.client import (
+    EVAL_METRIC_KEYS,
+    TRAIN_METRIC_KEYS,
+)
+from federated_ueba.federated.strategy import MixedFederationFedAvg
 from federated_ueba.models.autoencoder import SecurityAutoencoder
 
 
@@ -78,13 +82,17 @@ def main(grid: Grid, context: Context) -> None:
     # FedAvg strategy
     # ---------------------------------------------------------
 
-    strategy = FedAvg(
+    # MixedFederationFedAvg tolerates non-ML nodes (e.g. Station B) whose
+    # replies carry different MetricRecord keys than the ML stations.
+    strategy = MixedFederationFedAvg(
         fraction_train=fraction_train,
         fraction_evaluate=fraction_evaluate,
         min_train_nodes=2,
         min_evaluate_nodes=2,
         min_available_nodes=2,
         weighted_by_key="num-examples",
+        train_metric_keys=TRAIN_METRIC_KEYS,
+        evaluate_metric_keys=EVAL_METRIC_KEYS,
     )
 
     # ---------------------------------------------------------
