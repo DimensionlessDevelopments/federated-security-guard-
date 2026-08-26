@@ -24,6 +24,12 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from federated_ueba.agent.incident import (
+    build_insights_prompt,
+    format_incident_report,
+    gather_incident_data,
+    load_global_model,
+)
 from federated_ueba.data.generator import (
     FEATURE_NAMES,
     STATION_NAMES,
@@ -229,6 +235,68 @@ def alerts(limit: int = 20) -> list[dict]:
             }
         )
     return out
+
+
+@lru_cache(maxsize=None)
+def _incident_model(station: str):
+    """The model the incident agent scores with: the federated global model if
+    it exists, else a per-station fallback (trained once, then cached)."""
+    if Path(MODEL_PATH).exists():
+        return load_global_model(MODEL_PATH)
+    from federated_ueba.agent.__main__ import train_fallback_model
+
+    return train_fallback_model(station, epochs=10)
+
+
+@app.get("/api/incident")
+def incident(station: str | None = None, attack_fraction: float | None = None) -> dict:
+    """Run the incident-report agent for a station and return its analysis.
+
+    With no station, analyses the station with the highest live flag rate (the
+    one under attack). The attack fraction defaults to that station's observed
+    flag rate, so a quiet station yields "no incident" and a hot one triggers.
+    """
+    store = _store()
+    try:
+        rows = store.summary()
+    finally:
+        store.close()
+
+    by_station = {r["station"]: r for r in rows}
+    if station is None:
+        if rows:
+            station = max(
+                rows,
+                key=lambda r: (r["n_flagged"] or 0) / max(r["n_events"], 1),
+            )["station"]
+        else:
+            station = STATION_NAMES[0]
+    if station not in STATION_NAMES:
+        station = STATION_NAMES[0]
+
+    if attack_fraction is None:
+        row = by_station.get(station)
+        rate = (row["n_flagged"] / row["n_events"]) if row and row["n_events"] else 0.1
+        attack_fraction = max(0.0, min(0.5, rate * 1.2))
+
+    model = _incident_model(station)
+    report = gather_incident_data(
+        model, station, attack_fraction=attack_fraction
+    )
+    return {
+        "station": station,
+        "station_name": _station_name(station),
+        "triggered": report.triggered,
+        "n_events": report.n_events,
+        "n_flagged": report.n_flagged,
+        "flagged_rate": round(report.flagged_rate, 3),
+        "threshold": round(report.threshold, 4),
+        "feature_deviations": report.feature_deviations,
+        "report_text": format_incident_report(report),
+        "prompt": build_insights_prompt(report) if report.triggered else None,
+        "attack_fraction": round(attack_fraction, 3),
+        "model": "federated" if Path(MODEL_PATH).exists() else "local-fallback",
+    }
 
 
 @app.get("/")

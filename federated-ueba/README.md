@@ -191,6 +191,12 @@ dashboard, which polls every 5s. Point it at a different store with the
 `SERVING_DB` env var. `fastapi`/`uvicorn` come in via `uv sync` (transitive
 through `flwr`), so no extra install is needed.
 
+The **Report Incident** button runs the incident agent (`agent/incident.py`)
+via `GET /api/incident` and shows the report in-page: by default it analyses
+the station with the highest live flag rate (the one under attack), naming the
+behavioural features that drove the anomaly and the analyst-LLM prompt. It uses
+the federated global model if present, otherwise a local fallback.
+
 ## Measured results
 
 From a full `flwr run` (5 rounds, identical training budget for the

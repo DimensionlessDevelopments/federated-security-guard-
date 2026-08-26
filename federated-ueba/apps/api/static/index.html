@@ -151,6 +151,35 @@
   }
   .toast.show { opacity: 1; }
 
+  /* incident modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(20,20,22,.45);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 48px 20px; overflow-y: auto; z-index: 50;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 16px; max-width: 640px; width: 100%;
+    padding: 26px 28px; box-shadow: 0 24px 60px rgba(0,0,0,.25);
+  }
+  .modal .mhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .modal h3 { font-family: var(--serif); font-size: 22px; margin: 0 0 2px; }
+  .modal .close { background: none; border: none; font-size: 22px; color: var(--faint); cursor: pointer; line-height: 1; }
+  .modal .mrow { display: flex; gap: 18px; margin: 14px 0 4px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .modal .mrow b { color: var(--ink); }
+  .devbar { margin: 14px 0; }
+  .devbar .d { display: flex; align-items: center; gap: 10px; margin: 7px 0; font-size: 13px; }
+  .devbar .dname { width: 190px; color: var(--ink); }
+  .devbar .dtrack { flex: 1; height: 8px; background: #f0eadd; border-radius: 999px; overflow: hidden; }
+  .devbar .dtrack > span { display: block; height: 100%; background: var(--gold); }
+  .devbar .dval { width: 96px; text-align: right; color: var(--muted); font-size: 12px; }
+  .modal .field-select { margin-top: 4px; font-size: 13px; }
+  .modal select { font-family: var(--sans); font-size: 13px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; }
+  details.prompt { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 14px; }
+  details.prompt summary { cursor: pointer; font-size: 13px; color: var(--gold); font-weight: 600; }
+  details.prompt pre { white-space: pre-wrap; font-size: 12px; color: var(--muted); background: #faf9f7; border-radius: 10px; padding: 14px; margin-top: 10px; }
+  .modal .muted-note { font-size: 12px; color: var(--faint); margin-top: 6px; }
+
   @media (max-width: 860px) {
     .review, .two { grid-template-columns: 1fr; }
     .stats { grid-template-columns: repeat(2, 1fr); }
@@ -171,7 +200,7 @@
       <a href="#evaluation">Evaluation</a>
     </div>
     <div class="navbtns">
-      <button class="btn" onclick="toast('Incident reporting is handled by the response engine')">Report Incident</button>
+      <button class="btn" onclick="openIncident()">Report Incident</button>
       <button class="btn solid" onclick="location.href='#live-attack'; refresh()">View Live Events</button>
     </div>
   </nav>
@@ -259,6 +288,23 @@
     </section>
 
     <footer>Federated Security Guard · behavioural telemetry stays local · only model updates are shared</footer>
+  </div>
+
+  <div class="overlay" id="incident-overlay" onclick="if(event.target===this)closeIncident()">
+    <div class="modal" id="incident-modal">
+      <div class="mhead">
+        <div>
+          <span class="badge" id="inc-badge"><span class="dot"></span>Incident</span>
+          <h3 id="inc-title" style="margin-top:10px">Incident report</h3>
+          <div class="field-select">
+            Station:
+            <select id="inc-station" onchange="loadIncident(this.value)"></select>
+          </div>
+        </div>
+        <button class="close" onclick="closeIncident()">&times;</button>
+      </div>
+      <div id="inc-body"></div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -399,10 +445,67 @@ function renderAlerts(list) {
   });
 }
 
+// ---- incident modal (wired to the incident agent) ----
+let incidentStationsLoaded = false;
+
+async function ensureStationOptions(selected) {
+  const sel = document.getElementById('inc-station');
+  if (!incidentStationsLoaded) {
+    const stations = await fetch('/api/stations').then(r => r.json());
+    sel.innerHTML = '<option value="">Auto (most active)</option>' +
+      stations.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    incidentStationsLoaded = true;
+  }
+  sel.value = selected || '';
+}
+
+async function openIncident() {
+  document.getElementById('incident-overlay').classList.add('show');
+  await ensureStationOptions('');
+  loadIncident('');
+}
+function closeIncident() { document.getElementById('incident-overlay').classList.remove('show'); }
+
+async function loadIncident(station) {
+  const body = document.getElementById('inc-body');
+  body.innerHTML = '<div class="muted-note">Running the incident agent…</div>';
+  let rep;
+  try {
+    rep = await fetch('/api/incident' + (station ? `?station=${station}` : '')).then(r => r.json());
+  } catch (e) { body.innerHTML = '<div class="muted-note">Could not run the agent.</div>'; return; }
+
+  document.getElementById('inc-station').value = rep.station;
+  const badge = document.getElementById('inc-badge');
+  badge.className = 'badge ' + (rep.triggered ? 'red' : 'green');
+  badge.innerHTML = `<span class="dot"></span>${rep.triggered ? 'Incident triggered' : 'No incident'}`;
+  document.getElementById('inc-title').textContent = `${rep.station_name} — incident report`;
+
+  const devs = (rep.feature_deviations || []).map(d => {
+    const mag = Math.min(100, Math.abs(d.mean_sigma) / 12 * 100);
+    return `<div class="d">
+      <span class="dname">${d.feature}</span>
+      <span class="dtrack"><span style="width:${mag}%"></span></span>
+      <span class="dval">${Math.abs(d.mean_sigma).toFixed(1)}σ ${d.direction}</span>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="mrow">
+      <span>Events observed: <b>${rep.n_events}</b></span>
+      <span>Flagged anomalous: <b>${rep.n_flagged}</b> (${(rep.flagged_rate*100).toFixed(1)}%)</span>
+      <span>Threshold: <b>${rep.threshold}</b></span>
+    </div>
+    ${devs ? `<div class="devbar"><div class="muted-note" style="margin-bottom:8px">Behavioural features driving the anomaly</div>${devs}</div>` : '<p class="muted-note">Behaviour within normal range — nothing to review.</p>'}
+    ${rep.prompt ? `<details class="prompt"><summary>Analyst assessment prompt (sent to the LLM)</summary><pre>${rep.prompt.replace(/</g,'&lt;')}</pre></details>` : ''}
+    <div class="muted-note">Scored with the <b>${rep.model}</b> model · attack fraction ${rep.attack_fraction}</div>
+  `;
+}
+
 buildTabs('scenario-tabs', 'scenario-panel', SCENARIOS, (p, t) => { p.textContent = t; });
 buildTabs('why-tabs', 'why-panel', WHY, renderText);
 refresh();
 setInterval(refresh, 5000);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeIncident(); });
 </script>
 </body>
 </html>

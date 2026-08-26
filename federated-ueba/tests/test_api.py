@@ -84,3 +84,15 @@ def test_index_served(client):
     r = client.get("/")
     assert r.status_code == 200
     assert "Federated Security Guard" in r.text
+
+
+def test_incident_endpoint(client):
+    # Explicit attack fraction so the incident triggers regardless of the store.
+    r = client.get("/api/incident?station=station_alpha&attack_fraction=0.3")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["station"] == "station_alpha"
+    assert d["triggered"] is True
+    assert d["feature_deviations"]  # names the driving features
+    assert d["prompt"]  # analyst prompt present on a triggered incident
+    assert d["model"] in ("federated", "local-fallback")
