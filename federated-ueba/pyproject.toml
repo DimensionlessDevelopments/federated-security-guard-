@@ -44,18 +44,14 @@ fab-include = ["src/**/*.py", "LICENSE"]
 
 [tool.flwr.app.components]
 serverapp = "federated_ueba.federated.server:app"
-<<<<<<< Updated upstream
 # Dispatcher routes partitions to the ML StationClient or the non-ML
 # StationBClient. server.py and client.py are unchanged.
 clientapp = "federated_ueba.federated.client_dispatch:app"
-=======
-clientapp = "federated_ueba.federated.client:app"
 # NOTE: registering `agentapp` changes what `flwr run` executes -- Flower
 # runs the AgentApp INSTEAD of the server/client training pipeline
 # (control_handlers: AGENT_APP if "agentapp" in components else SERVER_APP).
 # Uncomment only for agent runs / `flwr chat`; keep commented for training.
 # agentapp = "federated_ueba.agent.agent_app:app"
->>>>>>> Stashed changes
 
 [tool.flwr.app.config]
 # Model dimensions -- input-dim must match the 11-feature UEBA schema
@@ -74,15 +70,12 @@ local-epochs = 2
 
 global-model-path = "artifacts/global_model.pt"
 
-<<<<<<< Updated upstream
 # Station B (non-ML node): synthetic events observed per round.
 station-b-events = 500
-=======
+
 [tool.flwr.app.config.agent]
 model = "openai/gpt-5.6-sol"
 station = "central_helpdesk"
-
->>>>>>> Stashed changes
 
 # NOTE: `flwr run` (v1.35) may rewrite/re-comment this block via its config
 # migration. It defines the local-sim federation, so keep it uncommented to

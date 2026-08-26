@@ -99,25 +99,55 @@ def test_no_ml_dependencies():
                     )
 
 
-def test_dispatcher_routes_by_partition():
+def _ctx(pid: int):
     from types import SimpleNamespace
 
-    from federated_ueba.data.generator import STATION_NAMES
-    from federated_ueba.federated.client_dispatch import client_fn
+    return SimpleNamespace(
+        node_config={"partition-id": pid},
+        run_config={"hidden-dim": 32, "latent-dim": 8, "station-b-events": 100},
+    )
 
-    def ctx(pid: int):
-        return SimpleNamespace(
-            node_config={"partition-id": pid},
-            run_config={"hidden-dim": 32, "latent-dim": 8, "station-b-events": 100},
-        )
+
+def test_dispatcher_routes_by_partition():
+    """Partitions 0..N-1 are ML stations; N and beyond are Station B."""
+    from federated_ueba.data.generator import STATION_NAMES
+    from federated_ueba.federated.client_dispatch import is_station_b
 
     n = len(STATION_NAMES)
-    # Real stations -> ML client; extra partition -> Station B.
     for pid in range(n):
-        client = client_fn(ctx(pid))
-        inner = getattr(client, "numpy_client", client)
-        assert type(inner).__name__ == "StationClient"
+        assert is_station_b(_ctx(pid)) is False
+    assert is_station_b(_ctx(n)) is True
+    assert is_station_b(_ctx(n + 3)) is True
 
-    sb = client_fn(ctx(n))
-    inner = getattr(sb, "numpy_client", sb)
-    assert type(inner).__name__ == "StationBClient"
+
+def test_make_station_b_client_reads_context():
+    from station_b.client_app import StationBClient, make_station_b_client
+
+    client = make_station_b_client(_ctx(4))
+    assert isinstance(client, StationBClient)
+    assert client.log.n_events == 100  # from run_config station-b-events
+
+
+def test_train_handler_echoes_arrays_and_reports_metrics():
+    """End-to-end via the Flower message API: the dispatcher routes partition
+    4 to Station B, which echoes the arrays and reports information metrics."""
+    from flwr.app import ArrayRecord, Message, RecordDict
+
+    from federated_ueba.federated.client_dispatch import train
+    from federated_ueba.models import SecurityAutoencoder
+
+    model = SecurityAutoencoder(input_dim=11, hidden_dim=32, latent_dim=8)
+    arrays = ArrayRecord(model.state_dict())
+    incoming = Message(
+        RecordDict({"arrays": arrays}), dst_node_id=0, message_type="train"
+    )
+
+    reply = train(incoming, _ctx(4))  # partition 4 -> Station B
+
+    echoed = reply.content["arrays"].to_numpy_ndarrays()
+    original = arrays.to_numpy_ndarrays()
+    assert [e.shape for e in echoed] == [o.shape for o in original]
+    assert all(np.array_equal(e, o) for e, o in zip(echoed, original))
+    metrics = reply.content["metrics"]
+    assert metrics["num-examples"] == 100
+    assert "n_flagged" in metrics

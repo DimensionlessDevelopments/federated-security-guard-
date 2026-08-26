@@ -10,6 +10,18 @@ See ``docs/station-b.md`` for the design rationale.
 
 from __future__ import annotations
 
-from station_b.client_app import StationBClient, app, client_fn
+from station_b.client_app import (
+    StationBClient,
+    app,
+    make_station_b_client,
+    station_b_evaluate,
+    station_b_train,
+)
 
-__all__ = ["StationBClient", "app", "client_fn"]
+__all__ = [
+    "StationBClient",
+    "app",
+    "make_station_b_client",
+    "station_b_train",
+    "station_b_evaluate",
+]
