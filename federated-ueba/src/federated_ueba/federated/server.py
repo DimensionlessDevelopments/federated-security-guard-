@@ -1,11 +1,12 @@
 from pathlib import Path
 
 import torch
-from flwr.app import ArrayRecord, ConfigRecord, Context, ServerApp
-from flwr.serverapp import Grid
+from flwr.app import ArrayRecord, ConfigRecord, Context
+from flwr.serverapp import Grid, ServerApp
 from flwr.serverapp.strategy import FedAvg
 
-from models.autoencoder import SecurityAutoencoder
+from federated_ueba.data.generator import NUM_FEATURES
+from federated_ueba.models.autoencoder import SecurityAutoencoder
 
 
 app = ServerApp()
@@ -28,7 +29,7 @@ def main(grid: Grid, context: Context) -> None:
     # Configuration
     # ---------------------------------------------------------
 
-    input_dim = int(context.run_config.get("input-dim", 10))
+    input_dim = int(context.run_config.get("input-dim", NUM_FEATURES))
     hidden_dim = int(context.run_config.get("hidden-dim", 32))
     latent_dim = int(context.run_config.get("latent-dim", 8))
 
