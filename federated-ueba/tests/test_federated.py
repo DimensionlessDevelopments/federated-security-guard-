@@ -5,7 +5,11 @@ import pytest
 import torch
 
 from federated_ueba.data.generator import NUM_FEATURES, STATION_NAMES
-from federated_ueba.federated.client import StationClient, BATCH_SIZE, LOCAL_EPOCHS
+from federated_ueba.federated.client import (
+    BATCH_SIZE,
+    LOCAL_EPOCHS,
+    StationClient,
+)
 from federated_ueba.models import (
     SecurityAutoencoder,
     get_parameters,
@@ -72,7 +76,9 @@ class TestStationClientFit:
 
     def test_returns_updated_parameters(self, client):
         initial_params = get_parameters(fresh_model())
-        updated_params, num_examples, metrics = client.fit(initial_params, config={})
+        updated_params, num_examples, metrics = client.fit(
+            initial_params, config={}
+        )
         assert len(updated_params) == len(initial_params)
         assert num_examples == 500
         assert isinstance(metrics, dict)
@@ -81,7 +87,8 @@ class TestStationClientFit:
         initial_params = get_parameters(fresh_model())
         updated_params, _, _ = client.fit(initial_params, config={})
         differs = any(
-            not np.array_equal(i, u) for i, u in zip(initial_params, updated_params)
+            not np.array_equal(i, u)
+            for i, u in zip(initial_params, updated_params)
         )
         assert differs
 
@@ -120,9 +127,7 @@ class TestStationClientFitConfig:
         updated, _, _ = client.fit(
             initial, config={"local-epochs": 1, "learning-rate": 0.001}
         )
-        assert any(
-            not np.array_equal(i, u) for i, u in zip(initial, updated)
-        )
+        assert any(not np.array_equal(i, u) for i, u in zip(initial, updated))
 
     def test_config_values_accept_strings(self, client):
         """Run-config values may arrive as strings; fit coerces them."""
@@ -137,9 +142,7 @@ class TestStationClientFitConfig:
         initial = get_parameters(fresh_model())
         updated, n, _ = client.fit(initial, config={})
         assert n == 500
-        assert any(
-            not np.array_equal(i, u) for i, u in zip(initial, updated)
-        )
+        assert any(not np.array_equal(i, u) for i, u in zip(initial, updated))
 
 
 class TestServerApp:
@@ -189,31 +192,42 @@ class TestConfigAlignment:
         )
         client = StationClient("station_alpha", seed=42)
         # raises on shape mismatch
-        updated, n, _ = client.fit(get_parameters(server_model), config={"local-epochs": 0})
+        updated, n, _ = client.fit(
+            get_parameters(server_model), config={"local-epochs": 0}
+        )
         assert len(updated) == 8
 
     def test_client_custom_dims(self):
-        client = StationClient("station_alpha", seed=42, hidden_dim=16, latent_dim=4)
+        client = StationClient(
+            "station_alpha", seed=42, hidden_dim=16, latent_dim=4
+        )
         params = client.get_parameters(config={})
         # encoder: 11->16->4, decoder: 4->16->11 (weight+bias each)
         assert params[0].shape == (16, NUM_FEATURES)
         assert params[2].shape == (4, 16)
 
-    def test_client_fn_reads_run_config(self):
+    def test_make_client_reads_run_config(self):
         from types import SimpleNamespace
 
-        from federated_ueba.federated.client import client_fn
+        from federated_ueba.federated.client import make_client
 
         context = SimpleNamespace(
             node_config={"partition-id": 1},
             run_config={"hidden-dim": 16, "latent-dim": 4},
         )
-        client = client_fn(context)
-        station_client = client.numpy_client
+        station_client = make_client(context)
         assert station_client.station == STATION_NAMES[1]
         params = get_parameters(station_client.model)
         assert params[0].shape == (16, NUM_FEATURES)
         assert params[2].shape == (4, 16)
+
+    def test_client_app_uses_message_api(self):
+        """The client must speak the same API as the server's strategy.start."""
+        from flwr.clientapp import ClientApp
+
+        from federated_ueba.federated import client
+
+        assert isinstance(client.app, ClientApp)
 
 
 class TestStationClientEvaluate:
@@ -286,25 +300,23 @@ class TestDataStaysLocal:
             assert client.features.shape[0] not in p.shape
 
     def test_fit_metrics_contain_no_arrays(self, client):
-        _, _, metrics = client.fit(
-            get_parameters(fresh_model()), config={}
-        )
+        _, _, metrics = client.fit(get_parameters(fresh_model()), config={})
         for value in metrics.values():
             assert np.isscalar(value), f"non-scalar in fit metrics: {value!r}"
 
     def test_evaluate_metrics_are_scalars_only(self, client):
         params = get_parameters(fresh_model())
         client.fit(params, config={})
-        _, _, metrics = client.evaluate(client.get_parameters(config={}), config={})
+        _, _, metrics = client.evaluate(
+            client.get_parameters(config={}), config={}
+        )
 
         for key, value in metrics.items():
             assert np.isscalar(value), f"non-scalar metric {key}: {value!r}"
 
     def test_raw_features_never_in_payload(self, client):
         """No parameter array shares memory with, or equals, the raw features."""
-        params, _, _ = client.fit(
-            get_parameters(fresh_model()), config={}
-        )
+        params, _, _ = client.fit(get_parameters(fresh_model()), config={})
         for p in params:
             assert not np.shares_memory(p, client.features)
             assert p.shape != client.features.shape
@@ -325,8 +337,7 @@ class TestFederatedRoundtrip:
         # FedAvg: weighted average
         total = n_a + n_b
         aggregated = [
-            (a * n_a + b * n_b) / total
-            for a, b in zip(params_a, params_b)
+            (a * n_a + b * n_b) / total for a, b in zip(params_a, params_b)
         ]
 
         loss_a, _, metrics_a = client_a.evaluate(aggregated, config={})

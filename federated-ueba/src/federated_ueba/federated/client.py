@@ -2,14 +2,18 @@
 
 Each client represents a station that trains the autoencoder on its
 local normal activity data and evaluates using a mix of normal + attack events.
+
+Uses the Flower message API (matching the ServerApp's `strategy.start`):
+the server sends ArrayRecord/ConfigRecord messages, the client replies
+with updated arrays and scalar metrics -- raw event data never leaves.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import torch
-from flwr.app import Context
-from flwr.client import ClientApp, NumPyClient
+from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
+from flwr.clientapp import ClientApp
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -32,8 +36,9 @@ LOCAL_EPOCHS = 10
 LEARNING_RATE = 0.001
 
 
-class StationClient(NumPyClient):
-    """FL client that trains the autoencoder on local normal behaviour."""
+class StationClient:
+    """Local trainer for one station. Transport-agnostic: works with plain
+    ndarray lists so it can run with or without the Flower runtime."""
 
     def __init__(
         self,
@@ -129,7 +134,8 @@ class StationClient(NumPyClient):
         )
 
 
-def client_fn(context: Context) -> StationClient:
+def make_client(context: Context) -> StationClient:
+    """Build the station client for this node from the run context."""
     partition_id = int(context.node_config.get("partition-id", 0))
     station = STATION_NAMES[partition_id % len(STATION_NAMES)]
     seed = 42 + partition_id * 100
@@ -137,7 +143,51 @@ def client_fn(context: Context) -> StationClient:
     latent_dim = int(context.run_config.get("latent-dim", 8))
     return StationClient(
         station, seed, hidden_dim=hidden_dim, latent_dim=latent_dim
-    ).to_client()
+    )
 
 
-app = ClientApp(client_fn=client_fn)
+app = ClientApp()
+
+
+@app.train()
+def train(msg: Message, context: Context) -> Message:
+    client = make_client(context)
+    parameters = msg.content["arrays"].to_numpy_ndarrays()
+    config = dict(msg.content["config"]) if "config" in msg.content else {}
+
+    _, num_examples, _ = client.fit(parameters, config)
+
+    # state_dict keys are preserved so the server can save the final
+    # aggregated arrays back into a torch state dict.
+    content = RecordDict(
+        {
+            "arrays": ArrayRecord(client.model.state_dict()),
+            "metrics": MetricRecord({"num-examples": num_examples}),
+        }
+    )
+    return Message(content=content, reply_to=msg)
+
+
+@app.evaluate()
+def evaluate(msg: Message, context: Context) -> Message:
+    client = make_client(context)
+    parameters = msg.content["arrays"].to_numpy_ndarrays()
+    config = dict(msg.content["config"]) if "config" in msg.content else {}
+
+    loss, num_examples, metrics = client.evaluate(parameters, config)
+    numeric_metrics = {
+        k: v for k, v in metrics.items() if isinstance(v, (int, float))
+    }
+
+    content = RecordDict(
+        {
+            "metrics": MetricRecord(
+                {
+                    "eval_loss": loss,
+                    "num-examples": num_examples,
+                    **numeric_metrics,
+                }
+            )
+        }
+    )
+    return Message(content=content, reply_to=msg)
